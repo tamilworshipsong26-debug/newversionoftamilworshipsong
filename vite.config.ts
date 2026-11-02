@@ -34,10 +34,21 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json}']
       }
     })
   ],
+  build: {
+    chunkSizeWarningLimit: 4000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'hymns-catalog': ['./src/data/hymnsData.json']
+        }
+      }
+    }
+  },
   server: {
     port: 3000,
     host: true

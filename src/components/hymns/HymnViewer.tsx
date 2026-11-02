@@ -221,6 +221,11 @@ export const HymnViewer: React.FC<HymnViewerProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {hymn.sheetMusicUrls && hymn.sheetMusicUrls.length > 0 && (
+                      <span className="text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30 flex items-center gap-0.5 font-medium" title="Sheet music notation available">
+                        🎼 Notes
+                      </span>
+                    )}
                     {isFav && (
                       <Heart className="w-3.5 h-3.5 fill-current text-pink-400" />
                     )}
@@ -252,6 +257,11 @@ export const HymnViewer: React.FC<HymnViewerProps> = ({
                   <span className="text-xs text-slate-400 font-medium">
                     {currentHymn.bookNameEnglish}
                   </span>
+                  {currentHymn.category && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-amber-300/90 font-medium border border-slate-700/60 font-tamil">
+                      {currentHymn.category}
+                    </span>
+                  )}
                   {currentHymn.keySignature && (
                     <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
                       Key: {currentHymn.keySignature}

@@ -84,13 +84,16 @@ export function getAppDatabase(): Promise<IDBPDatabase<WorshipAppDB>> {
 }
 
 /**
- * Seed initial hymns into IndexedDB if empty
+ * Seed initial hymns into IndexedDB (clears old dummy data if count < seedList.length)
  */
 export async function seedHymnsIfEmpty(seedList: Hymn[]): Promise<void> {
   const db = await getAppDatabase();
   const count = await db.count('hymns');
-  if (count === 0 && seedList.length > 0) {
+  if (count < seedList.length && seedList.length > 0) {
     const tx = db.transaction('hymns', 'readwrite');
+    if (count > 0) {
+      await tx.store.clear();
+    }
     for (const hymn of seedList) {
       await tx.store.put(hymn);
     }

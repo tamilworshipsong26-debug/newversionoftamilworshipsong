@@ -28,13 +28,11 @@ Thumbs.db
 # TypeScript cache
 *.tsbuildinfo
 
-# Raw corpus files
-*.json
-!package.json
-!tsconfig.json
-!tsconfig.app.json
-!tsconfig.node.json
-!firebase-blueprint.json
+# Raw source exports & corpus dumps
+en_kjv.json
+en_nkjv.json
+tamilbible.json
+tamilworshipsong-*.json
 
 # Env files
 .env
