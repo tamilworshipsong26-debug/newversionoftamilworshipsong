@@ -33,17 +33,14 @@ export const ObsLowerThirdView: React.FC<ObsLowerThirdViewProps> = ({ roomId }) 
 
   if (!roomState) {
     return (
-      <div className="w-screen h-screen flex flex-col justify-end p-8 sm:p-14 bg-transparent select-none overflow-hidden font-sans">
-        <div className="max-w-xl mx-auto w-full glass-panel border border-amber-500/30 rounded-2xl p-4 text-center shadow-2xl backdrop-blur-md">
+      <div className="w-screen h-screen flex flex-col justify-end p-4 sm:p-6 pb-4 sm:pb-6 bg-transparent select-none overflow-hidden font-sans">
+        <div className="max-w-md mx-auto w-full glass-panel border border-amber-500/30 rounded-xl p-3 text-center shadow-xl backdrop-blur-md">
           <div className="flex items-center justify-center gap-2 text-xs font-mono font-bold text-amber-300 uppercase tracking-wider">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>OBS Lower-Third Ready • Room: {roomId}</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>OBS Ready • Room: {roomId}</span>
           </div>
-          <p className="text-xs text-slate-300 font-tamil mt-1">
+          <p className="text-[11px] text-slate-300 font-tamil mt-0.5">
             ஒளிபரப்ப தயார் நிலையில் உள்ளது (Standing by for live broadcast)
-          </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            Select any hymn stanza or scripture verse in the controller to broadcast live
           </p>
         </div>
       </div>
@@ -68,56 +65,69 @@ export const ObsLowerThirdView: React.FC<ObsLowerThirdViewProps> = ({ roomId }) 
     ? 'glass-panel-gold border-amber-500/40 text-amber-100 shadow-2xl'
     : obsStyle === 'minimal-clean'
     ? 'bg-black/90 border border-slate-700 text-white'
-    : 'glass-panel text-white shadow-2xl shadow-black/60';
+    : 'glass-panel text-white shadow-2xl shadow-black/80';
 
   const isPrimaryTamil = hasTamil(primaryText);
   const isSecondaryTamil = hasTamil(secondaryText);
 
   return (
-    <div className="w-screen h-screen flex flex-col justify-end p-8 sm:p-14 bg-transparent select-none overflow-hidden font-sans">
+    <div className="w-screen h-screen flex flex-col justify-end p-3 sm:p-6 pb-3 sm:pb-5 bg-transparent select-none overflow-hidden font-sans">
       <div 
-        className={`max-w-5xl mx-auto w-full rounded-2xl p-6 sm:p-8 transition-all duration-300 transform animate-slide-up ${styleClass}`}
+        className={`max-w-5xl mx-auto w-full rounded-2xl p-3.5 sm:p-4 px-4 sm:px-6 transition-all duration-300 transform animate-slide-up ${styleClass}`}
       >
-        {/* Header Badge & Reference */}
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
-            <span className="text-sm sm:text-base font-bold font-mono tracking-wider text-amber-300 uppercase">
+        {/* Header Badge & Reference (Compact 1-liner) */}
+        <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/10 text-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0"></span>
+            <span className="font-bold font-mono tracking-wider text-amber-300 uppercase text-xs truncate">
               {referenceTitle}
             </span>
             {subReference && (
-              <span className={`text-xs sm:text-sm text-slate-300 font-medium ${hasTamil(subReference) ? 'font-tamil' : ''}`}>
+              <span className={`text-xs text-slate-300 font-medium truncate ${hasTamil(subReference) ? 'font-tamil' : ''}`}>
                 • {subReference}
               </span>
             )}
           </div>
 
           {slideBadge && (
-            <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 font-mono text-xs sm:text-sm font-bold border border-amber-500/30">
+            <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono text-[11px] font-bold border border-amber-500/30">
               {slideBadge}
             </span>
           )}
         </div>
 
-        {/* Primary Scripture or Song Lyric (Dynamic Font based on language) */}
-        <div 
-          className={`font-semibold text-2xl sm:text-4xl text-white leading-relaxed tracking-wide drop-shadow-md whitespace-pre-line ${
-            isPrimaryTamil ? 'font-tamil' : 'font-serif-scripture'
-          }`}
-          style={{ fontSize: `${Math.round(28 * fontScale)}px` }}
-        >
-          {primaryText}
-        </div>
+        {/* Content Body: Side-by-Side Grid if Secondary text exists, or Sleek Single Column */}
+        {secondaryText ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5 items-center">
+            {/* Primary Lyrics (Tamil or English) */}
+            <div 
+              className={`font-semibold text-white leading-snug tracking-wide drop-shadow-md whitespace-pre-line ${
+                isPrimaryTamil ? 'font-tamil' : 'font-serif-scripture'
+              }`}
+              style={{ fontSize: `${Math.round(19 * fontScale)}px` }}
+            >
+              {primaryText}
+            </div>
 
-        {/* Secondary Subtitle (Parallel text or translation) */}
-        {secondaryText && (
+            {/* Secondary Parallel Lyrics (Tanglish / Subtitle) */}
+            <div 
+              className={`md:border-l md:border-white/15 md:pl-5 text-amber-200/90 font-medium drop-shadow whitespace-pre-line leading-snug ${
+                isSecondaryTamil ? 'font-tamil' : 'font-serif-scripture italic'
+              }`}
+              style={{ fontSize: `${Math.round(14 * fontScale)}px` }}
+            >
+              {secondaryText}
+            </div>
+          </div>
+        ) : (
+          /* Single Primary Column */
           <div 
-            className={`mt-3 pt-3 border-t border-white/10 text-base sm:text-xl text-amber-200/90 font-medium drop-shadow whitespace-pre-line ${
-              isSecondaryTamil ? 'font-tamil' : 'font-serif-scripture italic'
+            className={`font-semibold text-white leading-snug tracking-wide drop-shadow-md whitespace-pre-line ${
+              isPrimaryTamil ? 'font-tamil' : 'font-serif-scripture'
             }`}
-            style={{ fontSize: `${Math.round(18 * fontScale)}px` }}
+            style={{ fontSize: `${Math.round(21 * fontScale)}px` }}
           >
-            {secondaryText}
+            {primaryText}
           </div>
         )}
       </div>
