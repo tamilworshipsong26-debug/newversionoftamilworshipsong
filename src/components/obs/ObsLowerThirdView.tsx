@@ -31,7 +31,26 @@ export const ObsLowerThirdView: React.FC<ObsLowerThirdViewProps> = ({ roomId }) 
     };
   }, [roomId]);
 
-  if (!roomState || roomState.isBlanked) {
+  if (!roomState) {
+    return (
+      <div className="w-screen h-screen flex flex-col justify-end p-8 sm:p-14 bg-transparent select-none overflow-hidden font-sans">
+        <div className="max-w-xl mx-auto w-full glass-panel border border-amber-500/30 rounded-2xl p-4 text-center shadow-2xl backdrop-blur-md">
+          <div className="flex items-center justify-center gap-2 text-xs font-mono font-bold text-amber-300 uppercase tracking-wider">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>OBS Lower-Third Ready • Room: {roomId}</span>
+          </div>
+          <p className="text-xs text-slate-300 font-tamil mt-1">
+            ஒளிபரப்ப தயார் நிலையில் உள்ளது (Standing by for live broadcast)
+          </p>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            Select any hymn stanza or scripture verse in the controller to broadcast live
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (roomState.isBlanked) {
     return <div className="w-screen h-screen bg-transparent" />;
   }
 
