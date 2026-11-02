@@ -1,27 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Radio, Columns2, Search, ChevronRight, Download, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
-import { BibleBook, BibleVerse, BibleTranslation, PairedBibleChapter } from '../../types/bible';
+import { 
+  BookOpen, 
+  Radio, 
+  Columns2, 
+  Search, 
+  ChevronRight, 
+  Download, 
+  CheckCircle2, 
+  Loader2, 
+  Sparkles,
+  ArrowLeftRight
+} from 'lucide-react';
+import { 
+  BibleBook, 
+  BibleVerse, 
+  BibleTranslation, 
+  PairedBibleChapter,
+  AVAILABLE_TRANSLATIONS 
+} from '../../types/bible';
 import { BIBLE_BOOKS } from '../../data/seedBible';
 import { BroadcastRoom } from '../../types/room';
 import { getPairedBibleChapter, getBibleOfflineStatus, preloadAllBibleBooks } from '../../services/db';
 
 interface BibleViewerProps {
   activeRoom: BroadcastRoom | null;
-  onBroadcastVerse: (verseTamil: BibleVerse, verseSecondary?: BibleVerse, bookNameTamil?: string, bookNameEng?: string) => void;
+  onBroadcastVerse: (
+    versePrimary: BibleVerse, 
+    verseSecondary?: BibleVerse, 
+    bookNamePrimary?: string, 
+    bookNameSecondary?: string
+  ) => void;
 }
 
 export const BibleViewer: React.FC<BibleViewerProps> = ({
   activeRoom,
   onBroadcastVerse
 }) => {
-  const [selectedBook, setSelectedBook] = useState<BibleBook>(BIBLE_BOOKS[42]); // John (யோவான்)
+  const [selectedBook, setSelectedBook] = useState<BibleBook>(BIBLE_BOOKS[42]); // Default John
   const [selectedChapter, setSelectedChapter] = useState<number>(3);
   const [testamentFilter, setTestamentFilter] = useState<'ALL' | 'OT' | 'NT'>('NT');
   const [bookSearch, setBookSearch] = useState('');
   
-  // Parallel translation mode
-  const [isParallel, setIsParallel] = useState(true);
-  const [secondaryTranslation, setSecondaryTranslation] = useState<BibleTranslation>('NKJV');
+  // User-configurable Translations (Separate and independent)
+  const [primaryTranslation, setPrimaryTranslation] = useState<BibleTranslation>('TAMIL_BSI');
+  const [secondaryTranslation, setSecondaryTranslation] = useState<BibleTranslation | 'NONE'>('NKJV');
 
   // Chapter Verses state
   const [chapterData, setChapterData] = useState<PairedBibleChapter | null>(null);
@@ -66,7 +88,6 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
       if (!cancelled) {
         setChapterData(res);
         setLoading(false);
-        // Refresh offline status count
         getBibleOfflineStatus().then(setOfflineStatus).catch(() => {});
       }
     }).catch(err => {
@@ -81,7 +102,7 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
     };
   }, [selectedBook.id, selectedChapter]);
 
-  // Handle preloading all 66 books
+  // Handle preloading all 66 books into IndexedDB
   const handlePreloadAll = async () => {
     if (isPreloading) return;
     setIsPreloading(true);
@@ -98,30 +119,69 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
     }
   };
 
+  // Swap primary and secondary translations
+  const handleSwapTranslations = () => {
+    if (secondaryTranslation === 'NONE') {
+      // If parallel was off, pick another as secondary
+      const nextSecondary = primaryTranslation === 'TAMIL_BSI' ? 'NKJV' : 'TAMIL_BSI';
+      setSecondaryTranslation(primaryTranslation);
+      setPrimaryTranslation(nextSecondary);
+    } else {
+      const oldPrimary = primaryTranslation;
+      setPrimaryTranslation(secondaryTranslation);
+      setSecondaryTranslation(oldPrimary);
+    }
+  };
+
+  // Helper to extract text by translation
+  const getVerseText = (v: { verse: number; tamil: string; kjv: string; nkjv: string }, trans: BibleTranslation): string => {
+    switch (trans) {
+      case 'TAMIL_BSI': return v.tamil;
+      case 'KJV': return v.kjv;
+      case 'NKJV': return v.nkjv;
+    }
+  };
+
+  const getTranslationName = (trans: BibleTranslation): string => {
+    const meta = AVAILABLE_TRANSLATIONS.find(t => t.id === trans);
+    return meta ? meta.shortName : trans;
+  };
+
   const handleVerseClick = (v: { verse: number; tamil: string; kjv: string; nkjv: string }) => {
-    const vTamil: BibleVerse = {
-      id: `TAMIL_BSI-${selectedBook.id}-${selectedChapter}-${v.verse}`,
-      translation: 'TAMIL_BSI',
+    const primaryText = getVerseText(v, primaryTranslation);
+    const isPrimaryTamil = primaryTranslation === 'TAMIL_BSI';
+
+    const vPrimary: BibleVerse = {
+      id: `${primaryTranslation}-${selectedBook.id}-${selectedChapter}-${v.verse}`,
+      translation: primaryTranslation,
       bookId: selectedBook.id,
       chapter: selectedChapter,
       verse: v.verse,
-      text: v.tamil
+      text: primaryText
     };
 
     let vSec: BibleVerse | undefined;
-    if (isParallel) {
+    let bookSecName: string | undefined;
+
+    if (secondaryTranslation !== 'NONE') {
+      const secondaryText = getVerseText(v, secondaryTranslation);
       vSec = {
         id: `${secondaryTranslation}-${selectedBook.id}-${selectedChapter}-${v.verse}`,
         translation: secondaryTranslation,
         bookId: selectedBook.id,
         chapter: selectedChapter,
         verse: v.verse,
-        text: secondaryTranslation === 'KJV' ? v.kjv : v.nkjv
+        text: secondaryText
       };
+      bookSecName = secondaryTranslation === 'TAMIL_BSI' ? selectedBook.nameTamil : selectedBook.nameEnglish;
     }
 
-    onBroadcastVerse(vTamil, vSec, selectedBook.nameTamil, selectedBook.nameEnglish);
+    const bookPrimaryName = isPrimaryTamil ? selectedBook.nameTamil : selectedBook.nameEnglish;
+
+    onBroadcastVerse(vPrimary, vSec, bookPrimaryName, bookSecName);
   };
+
+  const isPrimaryTamil = primaryTranslation === 'TAMIL_BSI';
 
   return (
     <div className="flex flex-col lg:flex-row h-full gap-4">
@@ -143,7 +203,7 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
               testamentFilter === 'OT' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
             }`}
           >
-            பழைய ஏற்பாடு
+            {isPrimaryTamil ? 'பழைய ஏற்பாடு' : 'Old Test.'}
           </button>
           <button
             onClick={() => setTestamentFilter('NT')}
@@ -151,7 +211,7 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
               testamentFilter === 'NT' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
             }`}
           >
-            புதிய ஏற்பாடு
+            {isPrimaryTamil ? 'புதிய ஏற்பாடு' : 'New Test.'}
           </button>
         </div>
 
@@ -163,7 +223,7 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
               type="text"
               value={bookSearch}
               onChange={(e) => setBookSearch(e.target.value)}
-              placeholder="Filter books (e.g. யோவான் / John)..."
+              placeholder="Search books (e.g. John / யோவான்)..."
               className="w-full bg-slate-950 border border-slate-700/60 rounded-xl pl-8 pr-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
             />
           </div>
@@ -187,8 +247,16 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
                 }`}
               >
                 <div>
-                  <div className="text-xs font-semibold font-tamil">{book.nameTamil}</div>
-                  <div className="text-[10px] text-slate-400">{book.nameEnglish} ({book.chaptersCount} ch)</div>
+                  <div className="text-xs font-semibold">
+                    {isPrimaryTamil ? (
+                      <span className="font-tamil">{book.nameTamil}</span>
+                    ) : (
+                      <span>{book.nameEnglish}</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    {isPrimaryTamil ? book.nameEnglish : book.nameTamil} ({book.chaptersCount} ch)
+                  </div>
                 </div>
                 <ChevronRight className={`w-3.5 h-3.5 ${isSelected ? 'text-amber-400' : 'text-slate-600'}`} />
               </button>
@@ -199,7 +267,7 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
         {/* Chapter quick selector */}
         <div className="p-2 bg-slate-950/80 border-t border-slate-800">
           <div className="text-[10px] text-slate-400 font-mono uppercase mb-1">
-            {selectedBook.nameTamil} • Chapter:
+            {isPrimaryTamil ? selectedBook.nameTamil : selectedBook.nameEnglish} • Chapter:
           </div>
           <div className="flex gap-1 overflow-x-auto pb-1">
             {Array.from({ length: selectedBook.chaptersCount }, (_, i) => i + 1).map(ch => (
@@ -221,7 +289,7 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
 
       {/* Right Scripture Verses & Parallel View */}
       <div className="flex-1 flex flex-col bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg min-h-[480px]">
-        {/* Header Controls */}
+        {/* Top Header Controls */}
         <div className="p-4 bg-slate-950/80 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -231,52 +299,92 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
               <span className="text-xs text-slate-400 font-mono">
                 {selectedBook.testament === 'OT' ? 'Old Testament' : 'New Testament'}
               </span>
-              <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-mono border border-emerald-500/20 hidden sm:inline-block">
-                Tri-Version (BSI + KJV + NKJV)
-              </span>
             </div>
-            <h2 className="text-lg sm:text-xl font-bold font-tamil text-white mt-1">
-              {selectedBook.nameTamil} {selectedChapter} ஆம் அதிகாரம்
+            <h2 className="text-lg sm:text-xl font-bold text-white mt-1">
+              {isPrimaryTamil ? (
+                <span className="font-tamil">{selectedBook.nameTamil} {selectedChapter} ஆம் அதிகாரம்</span>
+              ) : (
+                <span>{selectedBook.nameEnglish} Chapter {selectedChapter}</span>
+              )}
             </h2>
             <p className="text-xs sm:text-sm text-slate-400">
-              {selectedBook.nameEnglish} Chapter {selectedChapter}
+              {isPrimaryTamil ? (
+                `${selectedBook.nameEnglish} Chapter ${selectedChapter}`
+              ) : (
+                <span className="font-tamil">{selectedBook.nameTamil} {selectedChapter} ஆம் அதிகாரம்</span>
+              )}
             </p>
           </div>
 
-          {/* Parallel controls & Preload Trigger */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsParallel(!isParallel)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
-                isParallel 
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' 
-                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-              }`}
-            >
-              <Columns2 className="w-3.5 h-3.5" />
-              <span>Parallel Mode</span>
-            </button>
-
-            {isParallel && (
-              <div className="flex bg-slate-900 rounded-lg p-0.5 border border-slate-700/60 text-xs">
-                <button
-                  onClick={() => setSecondaryTranslation('NKJV')}
-                  className={`px-2 py-1 rounded-md transition ${
-                    secondaryTranslation === 'NKJV' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  NKJV
-                </button>
-                <button
-                  onClick={() => setSecondaryTranslation('KJV')}
-                  className={`px-2 py-1 rounded-md transition ${
-                    secondaryTranslation === 'KJV' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  KJV
-                </button>
+          {/* User-Configured Translation Switcher */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Primary Translation Picker */}
+            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/60 rounded-xl px-2.5 py-1 text-xs">
+              <span className="text-[10px] text-slate-400 uppercase font-mono font-semibold">Primary:</span>
+              <div className="flex gap-1">
+                {AVAILABLE_TRANSLATIONS.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setPrimaryTranslation(t.id);
+                      if (secondaryTranslation === t.id) {
+                        // Change secondary if it collides with new primary
+                        const alt = AVAILABLE_TRANSLATIONS.find(x => x.id !== t.id);
+                        setSecondaryTranslation(alt ? alt.id : 'NONE');
+                      }
+                    }}
+                    className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition ${
+                      primaryTranslation === t.id
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {t.shortName}
+                  </button>
+                ))}
               </div>
+            </div>
+
+            {/* Swap Button */}
+            {secondaryTranslation !== 'NONE' && (
+              <button
+                onClick={handleSwapTranslations}
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-amber-300 border border-slate-700 transition"
+                title="Swap Primary & Parallel Translations"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+              </button>
             )}
+
+            {/* Parallel / Compare Picker */}
+            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/60 rounded-xl px-2.5 py-1 text-xs">
+              <span className="text-[10px] text-slate-400 uppercase font-mono font-semibold">Parallel:</span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setSecondaryTranslation('NONE')}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition ${
+                    secondaryTranslation === 'NONE'
+                      ? 'bg-slate-700 text-white font-bold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Off
+                </button>
+                {AVAILABLE_TRANSLATIONS.filter(t => t.id !== primaryTranslation).map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSecondaryTranslation(t.id)}
+                    className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition ${
+                      secondaryTranslation === t.id
+                        ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {t.shortName}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -329,16 +437,21 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
             <div className="p-8 text-center text-slate-500">
               <BookOpen className="w-10 h-10 mx-auto mb-2 text-slate-600" />
               <p className="text-xs">
-                No verses found for {selectedBook.nameTamil} {selectedChapter}.
+                No verses found for {isPrimaryTamil ? selectedBook.nameTamil : selectedBook.nameEnglish} {selectedChapter}.
               </p>
             </div>
           ) : (
             chapterData.verses.map(v => {
-              const secText = secondaryTranslation === 'KJV' ? v.kjv : v.nkjv;
+              const primaryText = getVerseText(v, primaryTranslation);
+              const secondaryText = secondaryTranslation !== 'NONE' ? getVerseText(v, secondaryTranslation) : '';
+
               const isLive = 
                 activeRoom?.sourceType === 'bible' &&
                 activeRoom?.sourceId === `${selectedBook.id}-${selectedChapter}-${v.verse}` &&
                 !activeRoom?.isBlanked;
+
+              const isPrimaryTa = primaryTranslation === 'TAMIL_BSI';
+              const isSecTa = secondaryTranslation === 'TAMIL_BSI';
 
               return (
                 <div
@@ -353,7 +466,7 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-amber-400 font-mono px-2 py-0.5 rounded bg-slate-800 border border-slate-700/60">
-                        வசனம் {v.verse}
+                        {isPrimaryTa ? `வசனம் ${v.verse}` : `Verse ${v.verse}`}
                       </span>
                       <span className="text-[11px] text-slate-500">
                         {selectedBook.shortEnglish} {selectedChapter}:{v.verse}
@@ -374,25 +487,31 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
                   </div>
 
                   {/* Parallel Grid or Single Column */}
-                  <div className={`grid gap-3 ${isParallel ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
-                    {/* Tamil BSI */}
+                  <div className={`grid gap-3 ${secondaryTranslation !== 'NONE' ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
+                    {/* Primary Translation Box */}
                     <div>
-                      <div className="text-[10px] text-amber-400/80 font-mono uppercase mb-1">
-                        தமிழ் BSI (திருவிவிலியம்)
+                      <div className="text-[10px] text-amber-400 font-mono uppercase font-bold mb-1 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                        <span>{getTranslationName(primaryTranslation)}</span>
                       </div>
-                      <p className="font-tamil text-base sm:text-lg text-slate-100 font-medium leading-relaxed">
-                        {v.tamil}
+                      <p className={`text-base sm:text-lg text-slate-100 font-medium leading-relaxed ${
+                        isPrimaryTa ? 'font-tamil' : 'font-serif-scripture'
+                      }`}>
+                        {primaryText}
                       </p>
                     </div>
 
-                    {/* Secondary Translation (KJV / NKJV) */}
-                    {isParallel && (
+                    {/* Secondary Translation Box (if enabled) */}
+                    {secondaryTranslation !== 'NONE' && (
                       <div className="border-t md:border-t-0 md:border-l border-slate-800 pt-2 md:pt-0 md:pl-3">
-                        <div className="text-[10px] text-emerald-400 font-mono uppercase mb-1">
-                          {secondaryTranslation}
+                        <div className="text-[10px] text-emerald-400 font-mono uppercase font-bold mb-1 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                          <span>{getTranslationName(secondaryTranslation)}</span>
                         </div>
-                        <p className="font-serif-scripture text-sm sm:text-base text-slate-300 italic leading-relaxed">
-                          {secText}
+                        <p className={`text-sm sm:text-base text-slate-300 italic leading-relaxed ${
+                          isSecTa ? 'font-tamil not-italic' : 'font-serif-scripture'
+                        }`}>
+                          {secondaryText}
                         </p>
                       </div>
                     )}

@@ -6,6 +6,11 @@ interface ObsLowerThirdViewProps {
   roomId: string;
 }
 
+const hasTamil = (text?: string): boolean => {
+  if (!text) return false;
+  return /[\u0B80-\u0BFF]/.test(text);
+};
+
 export const ObsLowerThirdView: React.FC<ObsLowerThirdViewProps> = ({ roomId }) => {
   const [roomState, setRoomState] = useState<BroadcastRoom | null>(null);
 
@@ -46,6 +51,9 @@ export const ObsLowerThirdView: React.FC<ObsLowerThirdViewProps> = ({ roomId }) 
     ? 'bg-black/90 border border-slate-700 text-white'
     : 'glass-panel text-white shadow-2xl shadow-black/60';
 
+  const isPrimaryTamil = hasTamil(primaryText);
+  const isSecondaryTamil = hasTamil(secondaryText);
+
   return (
     <div className="w-screen h-screen flex flex-col justify-end p-8 sm:p-14 bg-transparent select-none overflow-hidden font-sans">
       <div 
@@ -59,7 +67,7 @@ export const ObsLowerThirdView: React.FC<ObsLowerThirdViewProps> = ({ roomId }) 
               {referenceTitle}
             </span>
             {subReference && (
-              <span className="text-xs sm:text-sm text-slate-300 font-medium">
+              <span className={`text-xs sm:text-sm text-slate-300 font-medium ${hasTamil(subReference) ? 'font-tamil' : ''}`}>
                 • {subReference}
               </span>
             )}
@@ -72,18 +80,22 @@ export const ObsLowerThirdView: React.FC<ObsLowerThirdViewProps> = ({ roomId }) 
           )}
         </div>
 
-        {/* Primary Tamil Lyric or Bible Verse */}
+        {/* Primary Scripture or Song Lyric (Dynamic Font based on language) */}
         <div 
-          className="font-tamil font-semibold text-2xl sm:text-4xl text-white leading-relaxed tracking-wide drop-shadow-md whitespace-pre-line"
+          className={`font-semibold text-2xl sm:text-4xl text-white leading-relaxed tracking-wide drop-shadow-md whitespace-pre-line ${
+            isPrimaryTamil ? 'font-tamil' : 'font-serif-scripture'
+          }`}
           style={{ fontSize: `${Math.round(28 * fontScale)}px` }}
         >
           {primaryText}
         </div>
 
-        {/* Secondary Subtitle (Tanglish or English parallel) */}
+        {/* Secondary Subtitle (Parallel text or translation) */}
         {secondaryText && (
           <div 
-            className="mt-3 pt-3 border-t border-white/10 font-sans text-base sm:text-xl text-amber-200/90 font-medium drop-shadow whitespace-pre-line"
+            className={`mt-3 pt-3 border-t border-white/10 text-base sm:text-xl text-amber-200/90 font-medium drop-shadow whitespace-pre-line ${
+              isSecondaryTamil ? 'font-tamil' : 'font-serif-scripture italic'
+            }`}
             style={{ fontSize: `${Math.round(18 * fontScale)}px` }}
           >
             {secondaryText}

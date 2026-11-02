@@ -6,6 +6,11 @@ interface SanctuaryProjectorViewProps {
   roomId: string;
 }
 
+const hasTamil = (text?: string): boolean => {
+  if (!text) return false;
+  return /[\u0B80-\u0BFF]/.test(text);
+};
+
 export const SanctuaryProjectorView: React.FC<SanctuaryProjectorViewProps> = ({ roomId }) => {
   const [roomState, setRoomState] = useState<BroadcastRoom | null>(null);
 
@@ -22,7 +27,7 @@ export const SanctuaryProjectorView: React.FC<SanctuaryProjectorViewProps> = ({ 
   if (!roomState || roomState.isBlanked) {
     return (
       <div className="w-screen h-screen bg-black flex items-center justify-center">
-        {/* Subtle cross indicator on blank or clean black */}
+        {/* Clean black on blank */}
         <div className="w-3 h-3 rounded-full bg-slate-900"></div>
       </div>
     );
@@ -37,6 +42,9 @@ export const SanctuaryProjectorView: React.FC<SanctuaryProjectorViewProps> = ({ 
     fontScale = 1.0
   } = roomState;
 
+  const isPrimaryTamil = hasTamil(primaryText);
+  const isSecondaryTamil = hasTamil(secondaryText);
+
   return (
     <div className="w-screen h-screen bg-slate-950 text-white flex flex-col justify-between p-12 sm:p-20 select-none overflow-hidden font-sans">
       {/* Top Bar Reference */}
@@ -46,7 +54,7 @@ export const SanctuaryProjectorView: React.FC<SanctuaryProjectorViewProps> = ({ 
             {referenceTitle}
           </span>
           {subReference && (
-            <span className="text-lg sm:text-xl text-slate-400 font-medium font-tamil">
+            <span className={`text-lg sm:text-xl text-slate-400 font-medium ${hasTamil(subReference) ? 'font-tamil' : ''}`}>
               — {subReference}
             </span>
           )}
@@ -61,9 +69,11 @@ export const SanctuaryProjectorView: React.FC<SanctuaryProjectorViewProps> = ({ 
 
       {/* Main Center Stage */}
       <div className="flex-1 flex flex-col items-center justify-center text-center my-auto max-w-6xl mx-auto w-full px-4 animate-slide-up">
-        {/* Primary Tamil text */}
+        {/* Primary Scripture or Song Text (Dynamic Font based on language) */}
         <div 
-          className="font-tamil font-bold text-3xl sm:text-5xl lg:text-6xl text-white leading-relaxed tracking-wide drop-shadow-lg whitespace-pre-line"
+          className={`font-bold text-3xl sm:text-5xl lg:text-6xl text-white leading-relaxed tracking-wide drop-shadow-lg whitespace-pre-line ${
+            isPrimaryTamil ? 'font-tamil' : 'font-serif-scripture'
+          }`}
           style={{ fontSize: `${Math.round(44 * fontScale)}px` }}
         >
           {primaryText}
@@ -72,7 +82,9 @@ export const SanctuaryProjectorView: React.FC<SanctuaryProjectorViewProps> = ({ 
         {/* Secondary Subtitle */}
         {secondaryText && (
           <div 
-            className="mt-8 font-sans font-medium text-xl sm:text-3xl text-amber-300/90 leading-relaxed whitespace-pre-line border-t border-slate-800 pt-6 w-full max-w-4xl"
+            className={`mt-8 font-medium text-xl sm:text-3xl text-amber-300/90 leading-relaxed whitespace-pre-line border-t border-slate-800 pt-6 w-full max-w-4xl ${
+              isSecondaryTamil ? 'font-tamil' : 'font-serif-scripture'
+            }`}
             style={{ fontSize: `${Math.round(26 * fontScale)}px` }}
           >
             {secondaryText}
