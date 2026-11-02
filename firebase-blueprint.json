@@ -1,0 +1,63 @@
+{
+  "$schema": "https://firebase.google.com/schemas/firestore.json",
+  "name": "tamil-worship-song-schema",
+  "description": "Firestore Data Blueprint for Live Sanctuary & OBS Broadcast Sync",
+  "collections": {
+    "rooms": {
+      "path": "rooms/{roomId}",
+      "description": "Real-time state for OBS Browser Source and Sanctuary Projector screens",
+      "fields": {
+        "roomId": "string",
+        "sourceType": "string (hymn | bible | announcement)",
+        "sourceId": "string",
+        "currentIndex": "number",
+        "chorusIndex": "number (optional)",
+        "isBlanked": "boolean",
+        "bilingualMode": "string (tamil-only | english-only | tamil-tanglish | tamil-english)",
+        "primaryText": "string",
+        "secondaryText": "string",
+        "referenceTitle": "string",
+        "subReference": "string",
+        "slideBadge": "string",
+        "obsStyle": "string (dark-glass | royal-gold | minimal-clean)",
+        "fontScale": "number",
+        "updatedBy": "string",
+        "updatedAt": "timestamp"
+      }
+    },
+    "setlists": {
+      "path": "setlists/{setlistId}",
+      "description": "Shared weekly church service cue sheets",
+      "fields": {
+        "title": "string",
+        "serviceDate": "string",
+        "roomId": "string",
+        "items": "array of { id, type, refId, title, subtitle, version }",
+        "ownerId": "string",
+        "updatedAt": "timestamp"
+      }
+    },
+    "reports": {
+      "path": "reports/{reportId}",
+      "description": "Community lyric typo and chord correction reports",
+      "fields": {
+        "hymnId": "string",
+        "hymnTitle": "string",
+        "issueType": "string (typo | missing-stanza | chords | other)",
+        "description": "string",
+        "status": "string (pending | resolved)",
+        "authorId": "string",
+        "createdAt": "timestamp"
+      }
+    },
+    "admins": {
+      "path": "admins/{userId}",
+      "description": "Admin access control lookup table",
+      "fields": {
+        "email": "string",
+        "role": "string (admin | editor)",
+        "grantedAt": "timestamp"
+      }
+    }
+  }
+}
