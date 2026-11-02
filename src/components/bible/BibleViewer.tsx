@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, 
   Radio, 
-  Columns2, 
   Search, 
   ChevronRight, 
   Download, 
   CheckCircle2, 
   Loader2, 
   Sparkles,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Heart,
+  Share2,
+  Copy,
+  CheckCheck
 } from 'lucide-react';
 import { 
   BibleBook, 
@@ -30,16 +33,25 @@ interface BibleViewerProps {
     bookNamePrimary?: string, 
     bookNameSecondary?: string
   ) => void;
+  appMode?: 'personal' | 'presenter';
+  fontScale?: number;
+  favoriteVerses?: string[];
+  onToggleFavoriteVerse?: (id: string) => void;
 }
 
 export const BibleViewer: React.FC<BibleViewerProps> = ({
   activeRoom,
-  onBroadcastVerse
+  onBroadcastVerse,
+  appMode = 'personal',
+  fontScale = 1.0,
+  favoriteVerses = [],
+  onToggleFavoriteVerse
 }) => {
   const [selectedBook, setSelectedBook] = useState<BibleBook>(BIBLE_BOOKS[42]); // Default John
   const [selectedChapter, setSelectedChapter] = useState<number>(3);
   const [testamentFilter, setTestamentFilter] = useState<'ALL' | 'OT' | 'NT'>('NT');
   const [bookSearch, setBookSearch] = useState('');
+  const [copiedVerseId, setCopiedVerseId] = useState<string | null>(null);
   
   // User-configurable Translations (Separate and independent)
   const [primaryTranslation, setPrimaryTranslation] = useState<BibleTranslation>('TAMIL_BSI');
@@ -122,7 +134,6 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
   // Swap primary and secondary translations
   const handleSwapTranslations = () => {
     if (secondaryTranslation === 'NONE') {
-      // If parallel was off, pick another as secondary
       const nextSecondary = primaryTranslation === 'TAMIL_BSI' ? 'NKJV' : 'TAMIL_BSI';
       setSecondaryTranslation(primaryTranslation);
       setPrimaryTranslation(nextSecondary);
@@ -133,7 +144,6 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
     }
   };
 
-  // Helper to extract text by translation
   const getVerseText = (v: { verse: number; tamil: string; kjv: string; nkjv: string }, trans: BibleTranslation): string => {
     switch (trans) {
       case 'TAMIL_BSI': return v.tamil;
@@ -147,7 +157,7 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
     return meta ? meta.shortName : trans;
   };
 
-  const handleVerseClick = (v: { verse: number; tamil: string; kjv: string; nkjv: string }) => {
+  const handleVerseAction = (v: { verse: number; tamil: string; kjv: string; nkjv: string }) => {
     const primaryText = getVerseText(v, primaryTranslation);
     const isPrimaryTamil = primaryTranslation === 'TAMIL_BSI';
 
@@ -178,7 +188,27 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
 
     const bookPrimaryName = isPrimaryTamil ? selectedBook.nameTamil : selectedBook.nameEnglish;
 
-    onBroadcastVerse(vPrimary, vSec, bookPrimaryName, bookSecName);
+    if (appMode === 'presenter') {
+      onBroadcastVerse(vPrimary, vSec, bookPrimaryName, bookSecName);
+    }
+  };
+
+  const handleCopyVerse = (v: { verse: number; tamil: string; kjv: string; nkjv: string }) => {
+    const pText = getVerseText(v, primaryTranslation);
+    const sText = secondaryTranslation !== 'NONE' ? `\n\n(${getTranslationName(secondaryTranslation)})\n` + getVerseText(v, secondaryTranslation) : '';
+    const ref = `${selectedBook.nameEnglish} / ${selectedBook.nameTamil} ${selectedChapter}:${v.verse}`;
+    navigator.clipboard.writeText(`📖 ${ref}\n\n${pText}${sText}`);
+    
+    setCopiedVerseId(`${selectedBook.id}-${selectedChapter}-${v.verse}`);
+    setTimeout(() => setCopiedVerseId(null), 2000);
+  };
+
+  const handleShareWhatsApp = (v: { verse: number; tamil: string; kjv: string; nkjv: string }) => {
+    const pText = getVerseText(v, primaryTranslation);
+    const sText = secondaryTranslation !== 'NONE' ? `\n\n*${getTranslationName(secondaryTranslation)}:*\n${getVerseText(v, secondaryTranslation)}` : '';
+    const ref = `${isPrimaryTamil ? selectedBook.nameTamil : selectedBook.nameEnglish} ${selectedChapter}:${v.verse}`;
+    const msg = `📖 *${ref}*\n\n${pText}${sText}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
   const isPrimaryTamil = primaryTranslation === 'TAMIL_BSI';
@@ -299,6 +329,9 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
               <span className="text-xs text-slate-400 font-mono">
                 {selectedBook.testament === 'OT' ? 'Old Testament' : 'New Testament'}
               </span>
+              <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-mono border border-emerald-500/20 hidden sm:inline-block">
+                Tri-Version (BSI + KJV + NKJV)
+              </span>
             </div>
             <h2 className="text-lg sm:text-xl font-bold text-white mt-1">
               {isPrimaryTamil ? (
@@ -328,14 +361,13 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
                     onClick={() => {
                       setPrimaryTranslation(t.id);
                       if (secondaryTranslation === t.id) {
-                        // Change secondary if it collides with new primary
                         const alt = AVAILABLE_TRANSLATIONS.find(x => x.id !== t.id);
                         setSecondaryTranslation(alt ? alt.id : 'NONE');
                       }
                     }}
                     className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition ${
                       primaryTranslation === t.id
-                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        ? 'bg-amber-500 text-slate-950 shadow-sm font-bold'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
@@ -376,7 +408,7 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
                     onClick={() => setSecondaryTranslation(t.id)}
                     className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition ${
                       secondaryTranslation === t.id
-                        ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                        ? 'bg-emerald-500 text-slate-950 shadow-sm font-bold'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
@@ -444,10 +476,13 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
             chapterData.verses.map(v => {
               const primaryText = getVerseText(v, primaryTranslation);
               const secondaryText = secondaryTranslation !== 'NONE' ? getVerseText(v, secondaryTranslation) : '';
+              const verseKey = `${selectedBook.id}-${selectedChapter}-${v.verse}`;
+              const isFav = favoriteVerses.includes(verseKey);
+              const isCopied = copiedVerseId === verseKey;
 
               const isLive = 
                 activeRoom?.sourceType === 'bible' &&
-                activeRoom?.sourceId === `${selectedBook.id}-${selectedChapter}-${v.verse}` &&
+                activeRoom?.sourceId === verseKey &&
                 !activeRoom?.isBlanked;
 
               const isPrimaryTa = primaryTranslation === 'TAMIL_BSI';
@@ -456,11 +491,13 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
               return (
                 <div
                   key={v.verse}
-                  onClick={() => handleVerseClick(v)}
-                  className={`group cursor-pointer rounded-xl p-4 transition-all border ${
-                    isLive
+                  onClick={() => handleVerseAction(v)}
+                  className={`group rounded-xl p-4 transition-all border ${
+                    appMode === 'presenter' && isLive
                       ? 'bg-gradient-to-r from-red-950/40 via-amber-950/30 to-slate-900 border-red-500/80 shadow-lg shadow-red-500/10 ring-1 ring-red-500/50'
-                      : 'bg-slate-900/80 hover:bg-slate-850 border-slate-800 hover:border-slate-700'
+                      : appMode === 'presenter'
+                      ? 'cursor-pointer bg-slate-900/80 hover:bg-slate-850 border-slate-800 hover:border-slate-700'
+                      : 'bg-slate-900/50 border-slate-800/80 hover:border-slate-700'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -473,17 +510,63 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
                       </span>
                     </div>
 
-                    {isLive ? (
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/30 px-2 py-0.5 rounded-full">
-                        <Radio className="w-3.5 h-3.5 animate-pulse" />
-                        <span>LIVE ON OBS & SCREEN</span>
-                      </div>
-                    ) : (
-                      <div className="opacity-0 group-hover:opacity-100 transition text-xs font-semibold text-amber-300 flex items-center gap-1">
-                        <Radio className="w-3.5 h-3.5" />
-                        <span>Broadcast Verse</span>
-                      </div>
-                    )}
+                    {/* Action buttons (Personal or Presenter) */}
+                    <div className="flex items-center gap-1.5">
+                      {/* Bookmark Favorite button */}
+                      {onToggleFavoriteVerse && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleFavoriteVerse(verseKey);
+                          }}
+                          className={`p-1 rounded-lg transition ${
+                            isFav ? 'text-pink-400' : 'text-slate-500 hover:text-pink-300'
+                          }`}
+                          title="Bookmark Verse"
+                        >
+                          <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
+                        </button>
+                      )}
+
+                      {/* Share WhatsApp */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShareWhatsApp(v);
+                        }}
+                        className="p-1 rounded-lg text-slate-500 hover:text-emerald-400 transition"
+                        title="Share Verse"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Copy verse */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyVerse(v);
+                        }}
+                        className="p-1 rounded-lg text-slate-500 hover:text-slate-200 transition"
+                        title="Copy Verse"
+                      >
+                        {isCopied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+
+                      {/* Presenter broadcast tally */}
+                      {appMode === 'presenter' && (
+                        isLive ? (
+                          <div className="flex items-center gap-1 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/30 px-2 py-0.5 rounded-full font-mono ml-1">
+                            <Radio className="w-3 h-3 animate-pulse" />
+                            <span>ON AIR</span>
+                          </div>
+                        ) : (
+                          <div className="text-xs font-semibold text-amber-300 flex items-center gap-1 ml-1">
+                            <Radio className="w-3 h-3" />
+                            <span>Project</span>
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
 
                   {/* Parallel Grid or Single Column */}
@@ -494,9 +577,12 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
                         <span>{getTranslationName(primaryTranslation)}</span>
                       </div>
-                      <p className={`text-base sm:text-lg text-slate-100 font-medium leading-relaxed ${
-                        isPrimaryTa ? 'font-tamil' : 'font-serif-scripture'
-                      }`}>
+                      <p 
+                        className={`text-slate-100 font-medium leading-relaxed ${
+                          isPrimaryTa ? 'font-tamil' : 'font-serif-scripture'
+                        }`}
+                        style={{ fontSize: `${Math.round(18 * fontScale)}px` }}
+                      >
                         {primaryText}
                       </p>
                     </div>
@@ -508,9 +594,12 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                           <span>{getTranslationName(secondaryTranslation)}</span>
                         </div>
-                        <p className={`text-sm sm:text-base text-slate-300 italic leading-relaxed ${
-                          isSecTa ? 'font-tamil not-italic' : 'font-serif-scripture'
-                        }`}>
+                        <p 
+                          className={`text-slate-300 italic leading-relaxed ${
+                            isSecTa ? 'font-tamil not-italic' : 'font-serif-scripture'
+                          }`}
+                          style={{ fontSize: `${Math.round(15 * fontScale)}px` }}
+                        >
                           {secondaryText}
                         </p>
                       </div>

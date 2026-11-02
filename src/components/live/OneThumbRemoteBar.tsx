@@ -8,6 +8,7 @@ interface OneThumbRemoteBarProps {
   onNext: () => void;
   onJumpChorus: () => void;
   onToggleBlank: () => void;
+  appMode?: 'personal' | 'presenter';
 }
 
 export const OneThumbRemoteBar: React.FC<OneThumbRemoteBarProps> = ({
@@ -15,9 +16,10 @@ export const OneThumbRemoteBar: React.FC<OneThumbRemoteBarProps> = ({
   onPrev,
   onNext,
   onJumpChorus,
-  onToggleBlank
+  onToggleBlank,
+  appMode = 'presenter'
 }) => {
-  if (!activeRoom) return null;
+  if (appMode !== 'presenter' || !activeRoom) return null;
 
   const isBlanked = activeRoom.isBlanked;
 

@@ -47,6 +47,10 @@ export const SEED_HYMNS: Hymn[] = [
     titleEnglish: 'Come Let Us Praise the God of Gods',
     category: 'துதி / Praise',
     keySignature: 'D Major',
+    sheetMusicUrls: [
+      'https://res.cloudinary.com/demo/image/upload/sample.jpg',
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Amazing_Grace_sheet_music.png/800px-Amazing_Grace_sheet_music.png'
+    ],
     stanzas: [
       {
         id: 'zion-1-pallavi',
@@ -129,6 +133,9 @@ export const SEED_HYMNS: Hymn[] = [
     titleEnglish: 'At All Times and in Every Moment',
     category: 'நன்றி / Thanksgiving',
     keySignature: 'E Major',
+    sheetMusicUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Amazing_Grace_sheet_music.png/800px-Amazing_Grace_sheet_music.png'
+    ],
     stanzas: [
       {
         id: 'zion-142-pallavi',
@@ -300,3 +307,4 @@ export const SEED_HYMNS: Hymn[] = [
     ]
   }
 ];
+

@@ -182,3 +182,4 @@ export const SEED_BIBLE_VERSES: BibleVerse[] = [
     text: 'He makes me to lie down in green pastures; He leads me beside the still waters.'
   }
 ];
+

@@ -146,3 +146,4 @@ export const ReportTypoModal: React.FC<ReportTypoModalProps> = ({
     </div>
   );
 };
+

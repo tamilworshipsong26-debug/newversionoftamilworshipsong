@@ -4,7 +4,8 @@ import {
   BookOpen, 
   Radio, 
   Calendar, 
-  Hash
+  Hash,
+  Heart
 } from 'lucide-react';
 import { Hymn, LyricLanguage } from './types/hymn';
 import { BibleVerse } from './types/bible';
@@ -43,6 +44,32 @@ export const App: React.FC = () => {
 
   // State
   const [roomId, setRoomId] = useState<string>(urlRoom);
+  const [appMode, setAppMode] = useState<'personal' | 'presenter'>(() => {
+    const saved = localStorage.getItem('tamil_worship_app_mode');
+    return (saved === 'presenter' || saved === 'personal') ? saved : 'personal';
+  });
+  const [fontScale, setFontScale] = useState<number>(() => {
+    const saved = localStorage.getItem('tamil_worship_font_scale');
+    return saved ? parseFloat(saved) || 1.0 : 1.0;
+  });
+  const [favoriteHymns, setFavoriteHymns] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('tamil_worship_fav_hymns');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [favoriteVerses, setFavoriteVerses] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('tamil_worship_fav_verses');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isFavoritesFilterActive, setIsFavoritesFilterActive] = useState<boolean>(false);
+
   const [activeTab, setActiveTab] = useState<'hymns' | 'bible' | 'setlist' | 'live'>('hymns');
   const [currentHymn, setCurrentHymn] = useState<Hymn | null>(SEED_HYMNS[0]);
   
@@ -52,6 +79,60 @@ export const App: React.FC = () => {
 
   const [isDialpadOpen, setIsDialpadOpen] = useState(false);
   const [reportingHymn, setReportingHymn] = useState<Hymn | null>(null);
+
+  // Persistence hooks
+  useEffect(() => {
+    localStorage.setItem('tamil_worship_app_mode', appMode);
+  }, [appMode]);
+
+  useEffect(() => {
+    localStorage.setItem('tamil_worship_font_scale', fontScale.toString());
+  }, [fontScale]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tamil_worship_fav_hymns', JSON.stringify(favoriteHymns));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [favoriteHymns]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tamil_worship_fav_verses', JSON.stringify(favoriteVerses));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [favoriteVerses]);
+
+  const handleToggleFavoriteHymn = (id: string) => {
+    setFavoriteHymns(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleFavoriteVerse = (verseId: string) => {
+    setFavoriteVerses(prev => 
+      prev.includes(verseId) ? prev.filter(x => x !== verseId) : [...prev, verseId]
+    );
+  };
+
+  const handleToggleFavoritesFilter = () => {
+    setIsFavoritesFilterActive(prev => {
+      const next = !prev;
+      if (next && activeTab !== 'hymns') {
+        setActiveTab('hymns');
+      }
+      return next;
+    });
+  };
+
+  const handleSetAppMode = (mode: 'personal' | 'presenter') => {
+    setAppMode(mode);
+    if (mode === 'personal' && activeTab === 'live') {
+      setActiveTab('hymns');
+    }
+  };
 
   // Live Room State
   const [activeRoom, setActiveRoom] = useState<BroadcastRoom>({
@@ -208,10 +289,15 @@ export const App: React.FC = () => {
       <Header
         roomId={roomId}
         setRoomId={setRoomId}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        appMode={appMode}
+        setAppMode={handleSetAppMode}
         onOpenDialpad={() => setIsDialpadOpen(true)}
         isLiveActive={!activeRoom.isBlanked}
+        favoritesCount={favoriteHymns.length + favoriteVerses.length}
+        onToggleFavoritesFilter={handleToggleFavoritesFilter}
+        isFavoritesFilterActive={isFavoritesFilterActive}
+        fontScale={fontScale}
+        setFontScale={setFontScale}
       />
 
       {/* Main Tab Bar (Desktop / Tablet view) */}
@@ -222,7 +308,7 @@ export const App: React.FC = () => {
               { id: 'hymns', label: 'Hymns & Songs', icon: Music, sub: '4 Books' },
               { id: 'bible', label: 'Holy Bible', icon: BookOpen, sub: 'BSI + NKJV' },
               { id: 'setlist', label: 'Service Setlist', icon: Calendar, sub: 'Sunday Cue' },
-              { id: 'live', label: 'Sanctuary Booth', icon: Radio, sub: 'OBS Console' }
+              ...(appMode === 'presenter' ? [{ id: 'live', label: 'Sanctuary Booth', icon: Radio, sub: 'OBS Console' }] : [])
             ].map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -262,6 +348,11 @@ export const App: React.FC = () => {
             secondaryLang={hymnSecondaryLang}
             setSecondaryLang={setHymnSecondaryLang}
             onOpenReportModal={(h) => setReportingHymn(h)}
+            appMode={appMode}
+            fontScale={fontScale}
+            favorites={favoriteHymns}
+            onToggleFavorite={handleToggleFavoriteHymn}
+            isFavoritesFilterActive={isFavoritesFilterActive}
           />
         )}
 
@@ -269,6 +360,10 @@ export const App: React.FC = () => {
           <BibleViewer
             activeRoom={activeRoom}
             onBroadcastVerse={handleBroadcastBibleVerse}
+            appMode={appMode}
+            fontScale={fontScale}
+            favoriteVerses={favoriteVerses}
+            onToggleFavoriteVerse={handleToggleFavoriteVerse}
           />
         )}
 
@@ -296,21 +391,27 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Docked One-Thumb Remote Bar for Mobile Phones */}
-      <OneThumbRemoteBar
-        activeRoom={activeRoom}
-        onPrev={handlePrev}
-        onNext={handleNext}
-        onJumpChorus={handleJumpChorus}
-        onToggleBlank={handleToggleBlank}
-      />
+      {/* Docked One-Thumb Remote Bar for Mobile Phones (Presenter Mode Only) */}
+      {appMode === 'presenter' && (
+        <OneThumbRemoteBar
+          activeRoom={activeRoom}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          onJumpChorus={handleJumpChorus}
+          onToggleBlank={handleToggleBlank}
+          appMode={appMode}
+        />
+      )}
 
-      {/* 5-Tab Bottom Navigation Bar for Mobile Phones */}
+      {/* Mobile Bottom Navigation Bar */}
       <nav aria-label="Mobile Navigation" className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/80 px-2 py-1.5 sm:hidden flex justify-around items-center">
         <button
-          onClick={() => setActiveTab('hymns')}
+          onClick={() => {
+            setActiveTab('hymns');
+            if (isFavoritesFilterActive) setIsFavoritesFilterActive(false);
+          }}
           className={`flex flex-col items-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition ${
-            activeTab === 'hymns' ? 'text-amber-400' : 'text-slate-400'
+            activeTab === 'hymns' && !isFavoritesFilterActive ? 'text-amber-400' : 'text-slate-400'
           }`}
         >
           <Music className="w-4 h-4 mb-0.5" />
@@ -331,29 +432,54 @@ export const App: React.FC = () => {
         <button
           onClick={() => setIsDialpadOpen(true)}
           className="flex flex-col items-center -mt-4 bg-gradient-to-tr from-amber-600 to-amber-400 text-slate-950 p-2.5 rounded-full shadow-lg shadow-amber-500/30 active:scale-95 transition"
+          title="Quick Dialpad"
         >
           <Hash className="w-5 h-5 font-bold" />
         </button>
 
-        <button
-          onClick={() => setActiveTab('setlist')}
-          className={`flex flex-col items-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition ${
-            activeTab === 'setlist' ? 'text-amber-400' : 'text-slate-400'
-          }`}
-        >
-          <Calendar className="w-4 h-4 mb-0.5" />
-          <span>Setlist</span>
-        </button>
+        {appMode === 'personal' ? (
+          <button
+            onClick={handleToggleFavoritesFilter}
+            className={`flex flex-col items-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition ${
+              isFavoritesFilterActive ? 'text-rose-400 font-bold' : 'text-slate-400'
+            }`}
+          >
+            <Heart className={`w-4 h-4 mb-0.5 ${isFavoritesFilterActive ? 'fill-rose-500 text-rose-500' : ''}`} />
+            <span>Saved {favoriteHymns.length ? `(${favoriteHymns.length})` : ''}</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => setActiveTab('setlist')}
+            className={`flex flex-col items-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition ${
+              activeTab === 'setlist' ? 'text-amber-400' : 'text-slate-400'
+            }`}
+          >
+            <Calendar className="w-4 h-4 mb-0.5" />
+            <span>Setlist</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('live')}
-          className={`flex flex-col items-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition ${
-            activeTab === 'live' ? 'text-amber-400' : 'text-slate-400'
-          }`}
-        >
-          <Radio className="w-4 h-4 mb-0.5" />
-          <span>Booth</span>
-        </button>
+        {appMode === 'presenter' ? (
+          <button
+            onClick={() => setActiveTab('live')}
+            className={`flex flex-col items-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition ${
+              activeTab === 'live' ? 'text-amber-400' : 'text-slate-400'
+            }`}
+          >
+            <Radio className="w-4 h-4 mb-0.5" />
+            <span>Booth</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => setActiveTab('setlist')}
+            className={`flex flex-col items-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition ${
+              activeTab === 'setlist' ? 'text-amber-400' : 'text-slate-400'
+            }`}
+          >
+            <Calendar className="w-4 h-4 mb-0.5" />
+            <span>Setlist</span>
+          </button>
+        )}
       </nav>
 
       {/* Quick Dialpad Bottom Sheet / Modal */}

@@ -30,3 +30,4 @@ export interface MistakeReport {
   authorId?: string;
   createdAt: number;
 }
+

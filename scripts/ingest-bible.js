@@ -64,3 +64,4 @@ for (let i = 0; i < 66; i++) {
 }
 
 console.log(`Ingested ${bookCodes.length} books, ${totalChapters} chapters, ${totalVerses} paired verses.`);
+
