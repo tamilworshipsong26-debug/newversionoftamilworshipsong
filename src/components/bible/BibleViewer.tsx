@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { BookOpen, Radio, Columns2, Search, ChevronRight } from 'lucide-react';
-import { BibleBook, BibleVerse, BibleTranslation } from '../../types/bible';
-import { BIBLE_BOOKS, SEED_BIBLE_VERSES } from '../../data/seedBible';
+import React, { useState, useEffect } from 'react';
+import { BookOpen, Radio, Columns2, Search, ChevronRight, Download, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import { BibleBook, BibleVerse, BibleTranslation, PairedBibleChapter } from '../../types/bible';
+import { BIBLE_BOOKS } from '../../data/seedBible';
 import { BroadcastRoom } from '../../types/room';
+import { getPairedBibleChapter, getBibleOfflineStatus, preloadAllBibleBooks } from '../../services/db';
 
 interface BibleViewerProps {
   activeRoom: BroadcastRoom | null;
@@ -22,6 +23,23 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
   const [isParallel, setIsParallel] = useState(true);
   const [secondaryTranslation, setSecondaryTranslation] = useState<BibleTranslation>('NKJV');
 
+  // Chapter Verses state
+  const [chapterData, setChapterData] = useState<PairedBibleChapter | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Offline preloading state
+  const [offlineStatus, setOfflineStatus] = useState<{
+    cachedChapters: number;
+    totalChapters: number;
+    isFullyOffline: boolean;
+  }>({
+    cachedChapters: 0,
+    totalChapters: 1189,
+    isFullyOffline: false
+  });
+  const [isPreloading, setIsPreloading] = useState(false);
+  const [preloadProgress, setPreloadProgress] = useState({ loaded: 0, total: 66, bookId: '' });
+
   // Filter books
   const filteredBooks = BIBLE_BOOKS.filter(b => {
     if (testamentFilter !== 'ALL' && b.testament !== testamentFilter) return false;
@@ -34,19 +52,81 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
     );
   });
 
-  // Get verses for current book & chapter
-  const tamilVerses = SEED_BIBLE_VERSES.filter(
-    v => v.translation === 'TAMIL_BSI' && v.bookId === selectedBook.id && v.chapter === selectedChapter
-  );
+  // Fetch offline status on mount
+  useEffect(() => {
+    getBibleOfflineStatus().then(setOfflineStatus).catch(console.error);
+  }, []);
 
-  const secondaryVerses = SEED_BIBLE_VERSES.filter(
-    v => v.translation === secondaryTranslation && v.bookId === selectedBook.id && v.chapter === selectedChapter
-  );
+  // Fetch chapter data when book or chapter changes
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+
+    getPairedBibleChapter(selectedBook.id, selectedChapter).then(res => {
+      if (!cancelled) {
+        setChapterData(res);
+        setLoading(false);
+        // Refresh offline status count
+        getBibleOfflineStatus().then(setOfflineStatus).catch(() => {});
+      }
+    }).catch(err => {
+      if (!cancelled) {
+        console.error('Error fetching chapter:', err);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBook.id, selectedChapter]);
+
+  // Handle preloading all 66 books
+  const handlePreloadAll = async () => {
+    if (isPreloading) return;
+    setIsPreloading(true);
+    try {
+      await preloadAllBibleBooks((progress) => {
+        setPreloadProgress(progress);
+      });
+      const st = await getBibleOfflineStatus();
+      setOfflineStatus(st);
+    } catch (e) {
+      console.error('Preload failed:', e);
+    } finally {
+      setIsPreloading(false);
+    }
+  };
+
+  const handleVerseClick = (v: { verse: number; tamil: string; kjv: string; nkjv: string }) => {
+    const vTamil: BibleVerse = {
+      id: `TAMIL_BSI-${selectedBook.id}-${selectedChapter}-${v.verse}`,
+      translation: 'TAMIL_BSI',
+      bookId: selectedBook.id,
+      chapter: selectedChapter,
+      verse: v.verse,
+      text: v.tamil
+    };
+
+    let vSec: BibleVerse | undefined;
+    if (isParallel) {
+      vSec = {
+        id: `${secondaryTranslation}-${selectedBook.id}-${selectedChapter}-${v.verse}`,
+        translation: secondaryTranslation,
+        bookId: selectedBook.id,
+        chapter: selectedChapter,
+        verse: v.verse,
+        text: secondaryTranslation === 'KJV' ? v.kjv : v.nkjv
+      };
+    }
+
+    onBroadcastVerse(vTamil, vSec, selectedBook.nameTamil, selectedBook.nameEnglish);
+  };
 
   return (
     <div className="flex flex-col lg:flex-row h-full gap-4">
       {/* Left Bible Book & Chapter Navigator */}
-      <div className="w-full lg:w-80 lg:shrink-0 flex flex-col bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg max-h-[380px] lg:max-h-full">
+      <div className="w-full lg:w-80 lg:shrink-0 flex flex-col bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg max-h-[420px] lg:max-h-full">
         {/* Testament Filter */}
         <div className="flex p-1.5 bg-slate-950/80 border-b border-slate-800 gap-1 text-xs">
           <button
@@ -118,7 +198,9 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
 
         {/* Chapter quick selector */}
         <div className="p-2 bg-slate-950/80 border-t border-slate-800">
-          <div className="text-[10px] text-slate-400 font-mono uppercase mb-1">Chapter:</div>
+          <div className="text-[10px] text-slate-400 font-mono uppercase mb-1">
+            {selectedBook.nameTamil} • Chapter:
+          </div>
           <div className="flex gap-1 overflow-x-auto pb-1">
             {Array.from({ length: selectedBook.chaptersCount }, (_, i) => i + 1).map(ch => (
               <button
@@ -149,6 +231,9 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
               <span className="text-xs text-slate-400 font-mono">
                 {selectedBook.testament === 'OT' ? 'Old Testament' : 'New Testament'}
               </span>
+              <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-mono border border-emerald-500/20 hidden sm:inline-block">
+                Tri-Version (BSI + KJV + NKJV)
+              </span>
             </div>
             <h2 className="text-lg sm:text-xl font-bold font-tamil text-white mt-1">
               {selectedBook.nameTamil} {selectedChapter} ஆம் அதிகாரம்
@@ -158,7 +243,7 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
             </p>
           </div>
 
-          {/* Parallel controls */}
+          {/* Parallel controls & Preload Trigger */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsParallel(!isParallel)}
@@ -195,19 +280,61 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
           </div>
         </div>
 
+        {/* Offline Cache Status Banner */}
+        <div className="px-4 py-2 bg-slate-950/40 border-b border-slate-800/60 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            {offlineStatus.isFullyOffline ? (
+              <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>All 66 Books 100% Cached in IndexedDB</span>
+              </span>
+            ) : (
+              <span className="text-slate-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>IndexedDB Cache: {offlineStatus.cachedChapters} of 1,189 chapters stored</span>
+              </span>
+            )}
+          </div>
+
+          {!offlineStatus.isFullyOffline && (
+            <button
+              onClick={handlePreloadAll}
+              disabled={isPreloading}
+              className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-300 px-2.5 py-1 rounded-lg border border-slate-700 font-mono text-[11px] transition"
+              title="Cache all 66 books into IndexedDB for 100% offline access"
+            >
+              {isPreloading ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
+                  <span>Downloading ({preloadProgress.loaded}/66)...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3 h-3" />
+                  <span>Download All 66 Books (Offline)</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+
         {/* Verses Scroll Area */}
         <div className="flex-1 p-4 overflow-y-auto space-y-3.5">
-          {tamilVerses.length === 0 ? (
+          {loading ? (
+            <div className="p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+              <p className="text-xs font-mono">Loading scripture from IndexedDB...</p>
+            </div>
+          ) : !chapterData || chapterData.verses.length === 0 ? (
             <div className="p-8 text-center text-slate-500">
               <BookOpen className="w-10 h-10 mx-auto mb-2 text-slate-600" />
               <p className="text-xs">
-                Verses for {selectedBook.nameTamil} {selectedChapter} are cached in local IndexedDB. 
-                (Try John 3 or Psalm 23 for seeded demo verses)
+                No verses found for {selectedBook.nameTamil} {selectedChapter}.
               </p>
             </div>
           ) : (
-            tamilVerses.map(v => {
-              const sec = secondaryVerses.find(sv => sv.verse === v.verse);
+            chapterData.verses.map(v => {
+              const secText = secondaryTranslation === 'KJV' ? v.kjv : v.nkjv;
               const isLive = 
                 activeRoom?.sourceType === 'bible' &&
                 activeRoom?.sourceId === `${selectedBook.id}-${selectedChapter}-${v.verse}` &&
@@ -215,8 +342,8 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
 
               return (
                 <div
-                  key={v.id}
-                  onClick={() => onBroadcastVerse(v, sec, selectedBook.nameTamil, selectedBook.nameEnglish)}
+                  key={v.verse}
+                  onClick={() => handleVerseClick(v)}
                   className={`group cursor-pointer rounded-xl p-4 transition-all border ${
                     isLive
                       ? 'bg-gradient-to-r from-red-950/40 via-amber-950/30 to-slate-900 border-red-500/80 shadow-lg shadow-red-500/10 ring-1 ring-red-500/50'
@@ -254,18 +381,18 @@ export const BibleViewer: React.FC<BibleViewerProps> = ({
                         தமிழ் BSI (திருவிவிலியம்)
                       </div>
                       <p className="font-tamil text-base sm:text-lg text-slate-100 font-medium leading-relaxed">
-                        {v.text}
+                        {v.tamil}
                       </p>
                     </div>
 
                     {/* Secondary Translation (KJV / NKJV) */}
-                    {isParallel && sec && (
+                    {isParallel && (
                       <div className="border-t md:border-t-0 md:border-l border-slate-800 pt-2 md:pt-0 md:pl-3">
                         <div className="text-[10px] text-emerald-400 font-mono uppercase mb-1">
                           {secondaryTranslation}
                         </div>
                         <p className="font-serif-scripture text-sm sm:text-base text-slate-300 italic leading-relaxed">
-                          {sec.text}
+                          {secText}
                         </p>
                       </div>
                     )}

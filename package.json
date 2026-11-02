@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "ingest:bible": "node scripts/ingest-bible.js",
     "postinstall": "node -e \"const fs=require('fs'),f='./node_modules/rollup/dist/native.js';if(fs.existsSync(f)){let c=fs.readFileSync(f,'utf8');if(!c.includes('@rollup/wasm-node')){c=c.replace('try {\\n\\t\\treturn require(id);\\n\\t} catch (error) {','try {\\n\\t\\treturn require(id);\\n\\t} catch (error) {\\n\\t\\ttry { return require(\\'@rollup/wasm-node/dist/native.js\\'); } catch (_) {}');fs.writeFileSync(f,c);}}\""
   },
   "dependencies": {
