@@ -6,9 +6,9 @@ import {
   Calendar, 
   Hash
 } from 'lucide-react';
-import { Hymn } from './types/hymn';
+import { Hymn, LyricLanguage } from './types/hymn';
 import { BibleVerse } from './types/bible';
-import { BroadcastRoom, BilingualDisplayMode } from './types/room';
+import { BroadcastRoom } from './types/room';
 import { SetlistItem } from './types/setlist';
 import { SEED_HYMNS } from './data/seedHymns';
 import { SEED_BIBLE_VERSES } from './data/seedBible';
@@ -45,7 +45,11 @@ export const App: React.FC = () => {
   const [roomId, setRoomId] = useState<string>(urlRoom);
   const [activeTab, setActiveTab] = useState<'hymns' | 'bible' | 'setlist' | 'live'>('hymns');
   const [currentHymn, setCurrentHymn] = useState<Hymn | null>(SEED_HYMNS[0]);
-  const [bilingualMode, setBilingualMode] = useState<BilingualDisplayMode>('tamil-tanglish');
+  
+  // Independent user-selectable language preferences for songs
+  const [hymnPrimaryLang, setHymnPrimaryLang] = useState<LyricLanguage>('tamil');
+  const [hymnSecondaryLang, setHymnSecondaryLang] = useState<LyricLanguage | 'none'>('tanglish');
+
   const [isDialpadOpen, setIsDialpadOpen] = useState(false);
   const [reportingHymn, setReportingHymn] = useState<Hymn | null>(null);
 
@@ -56,7 +60,7 @@ export const App: React.FC = () => {
     sourceId: 'zion-1',
     currentIndex: 0,
     isBlanked: false,
-    bilingualMode: 'tamil-tanglish',
+    bilingualMode: 'parallel',
     primaryText: SEED_HYMNS[0].stanzas[0].tamil.join('\n'),
     secondaryText: SEED_HYMNS[0].stanzas[0].tanglish?.join('\n'),
     referenceTitle: 'Songs of Zion #1',
@@ -82,17 +86,27 @@ export const App: React.FC = () => {
     return () => cleanup();
   }, [roomId]);
 
-  // Broadcast handlers
-  const handleBroadcastHymnStanza = (hymn: Hymn, stanzaIndex: number) => {
+  // Broadcast stanza with user's selected primary & secondary lyric languages
+  const handleBroadcastHymnStanza = (
+    hymn: Hymn, 
+    stanzaIndex: number,
+    primaryLang: LyricLanguage = hymnPrimaryLang,
+    secondaryLang: LyricLanguage | 'none' = hymnSecondaryLang
+  ) => {
     const stanza = hymn.stanzas[stanzaIndex];
     if (!stanza) return;
 
-    let secText = '';
-    if (bilingualMode === 'tamil-tanglish' && stanza.tanglish) {
-      secText = stanza.tanglish.join('\n');
-    } else if (bilingualMode === 'tamil-english' && stanza.english) {
-      secText = stanza.english.join('\n');
-    }
+    const getLines = (lang: LyricLanguage): string[] => {
+      if (lang === 'tamil') return stanza.tamil;
+      if (lang === 'tanglish') return stanza.tanglish && stanza.tanglish.length ? stanza.tanglish : stanza.tamil;
+      if (lang === 'english') return stanza.english && stanza.english.length ? stanza.english : stanza.tamil;
+      return stanza.tamil;
+    };
+
+    const primaryLines = getLines(primaryLang);
+    const secondaryLines = secondaryLang !== 'none' ? getLines(secondaryLang) : [];
+
+    const isPrimaryTa = primaryLang === 'tamil';
 
     const payload: BroadcastRoom = {
       ...activeRoom,
@@ -101,12 +115,14 @@ export const App: React.FC = () => {
       sourceId: hymn.id,
       currentIndex: stanzaIndex,
       isBlanked: false,
-      bilingualMode,
-      primaryText: stanza.tamil.join('\n'),
-      secondaryText: secText,
-      referenceTitle: `${hymn.bookNameEnglish} #${hymn.number}`,
-      subReference: stanza.label,
-      slideBadge: stanza.label.split(' ')[0],
+      bilingualMode: secondaryLang !== 'none' ? 'parallel' : 'tamil-only',
+      primaryText: primaryLines.join('\n'),
+      secondaryText: secondaryLines.length ? secondaryLines.join('\n') : undefined,
+      referenceTitle: isPrimaryTa 
+        ? `${hymn.bookNameTamil || hymn.bookNameEnglish} #${hymn.number}`
+        : `${hymn.bookNameEnglish} #${hymn.number}`,
+      subReference: isPrimaryTa ? hymn.titleTamil : (hymn.titleTanglish || hymn.titleEnglish || hymn.titleTamil),
+      slideBadge: stanza.label,
       updatedAt: Date.now()
     };
 
@@ -114,25 +130,27 @@ export const App: React.FC = () => {
     syncManager.broadcast(payload);
   };
 
+  // Broadcast Bible verse with user's selected primary & secondary translations
   const handleBroadcastBibleVerse = (
-    vTamil: BibleVerse, 
+    vPrimary: BibleVerse, 
     vSec?: BibleVerse, 
-    bookTamil?: string, 
-    bookEng?: string
+    bookPrimaryTitle?: string, 
+    bookSecondaryTitle?: string
   ) => {
+    const isPrimaryTa = vPrimary.translation === 'TAMIL_BSI';
     const payload: BroadcastRoom = {
       ...activeRoom,
       roomId,
       sourceType: 'bible',
-      sourceId: `${vTamil.bookId}-${vTamil.chapter}-${vTamil.verse}`,
-      currentIndex: vTamil.verse,
+      sourceId: `${vPrimary.bookId}-${vPrimary.chapter}-${vPrimary.verse}`,
+      currentIndex: vPrimary.verse,
       isBlanked: false,
-      bilingualMode: vSec ? 'tamil-english' : 'tamil-only',
-      primaryText: vTamil.text,
+      bilingualMode: vSec ? 'parallel' : (isPrimaryTa ? 'tamil-only' : 'english-only'),
+      primaryText: vPrimary.text,
       secondaryText: vSec ? vSec.text : undefined,
-      referenceTitle: `${bookTamil || vTamil.bookId} ${vTamil.chapter}:${vTamil.verse}`,
-      subReference: bookEng ? `${bookEng} ${vTamil.chapter}:${vTamil.verse}` : undefined,
-      slideBadge: `வசனம் ${vTamil.verse}`,
+      referenceTitle: `${bookPrimaryTitle || vPrimary.bookId} ${vPrimary.chapter}:${vPrimary.verse}`,
+      subReference: bookSecondaryTitle ? `${bookSecondaryTitle} ${vPrimary.chapter}:${vPrimary.verse}` : undefined,
+      slideBadge: isPrimaryTa ? `வசனம் ${vPrimary.verse}` : `Verse ${vPrimary.verse}`,
       updatedAt: Date.now()
     };
 
@@ -143,13 +161,13 @@ export const App: React.FC = () => {
   const handlePrev = () => {
     if (!currentHymn) return;
     const prevIdx = Math.max(0, (activeRoom.currentIndex || 0) - 1);
-    handleBroadcastHymnStanza(currentHymn, prevIdx);
+    handleBroadcastHymnStanza(currentHymn, prevIdx, hymnPrimaryLang, hymnSecondaryLang);
   };
 
   const handleNext = () => {
     if (!currentHymn) return;
     const nextIdx = Math.min(currentHymn.stanzas.length - 1, (activeRoom.currentIndex || 0) + 1);
-    handleBroadcastHymnStanza(currentHymn, nextIdx);
+    handleBroadcastHymnStanza(currentHymn, nextIdx, hymnPrimaryLang, hymnSecondaryLang);
   };
 
   const handleJumpChorus = () => {
@@ -158,7 +176,7 @@ export const App: React.FC = () => {
       s => s.type === 'pallavi' || s.type === 'chorus'
     );
     if (pallaviIdx !== -1) {
-      handleBroadcastHymnStanza(currentHymn, pallaviIdx);
+      handleBroadcastHymnStanza(currentHymn, pallaviIdx, hymnPrimaryLang, hymnSecondaryLang);
     }
   };
 
@@ -176,7 +194,7 @@ export const App: React.FC = () => {
       const h = SEED_HYMNS.find(x => x.id === item.refId);
       if (h) {
         setCurrentHymn(h);
-        handleBroadcastHymnStanza(h, 0);
+        handleBroadcastHymnStanza(h, 0, hymnPrimaryLang, hymnSecondaryLang);
         setActiveTab('live');
       }
     } else if (item.type === 'bible') {
@@ -239,8 +257,10 @@ export const App: React.FC = () => {
             onSelectHymn={(h) => setCurrentHymn(h)}
             activeRoom={activeRoom}
             onBroadcastStanza={handleBroadcastHymnStanza}
-            bilingualMode={bilingualMode}
-            setBilingualMode={setBilingualMode}
+            primaryLang={hymnPrimaryLang}
+            setPrimaryLang={setHymnPrimaryLang}
+            secondaryLang={hymnSecondaryLang}
+            setSecondaryLang={setHymnSecondaryLang}
             onOpenReportModal={(h) => setReportingHymn(h)}
           />
         )}
@@ -269,7 +289,7 @@ export const App: React.FC = () => {
             onNext={handleNext}
             onJumpChorus={handleJumpChorus}
             onToggleBlank={handleToggleBlank}
-            onSelectStanza={handleBroadcastHymnStanza}
+            onSelectStanza={(h, idx) => handleBroadcastHymnStanza(h, idx, hymnPrimaryLang, hymnSecondaryLang)}
             onChangeTheme={(theme) => syncManager.broadcast({ ...activeRoom, obsStyle: theme })}
             onChangeFontScale={(scale) => syncManager.broadcast({ ...activeRoom, fontScale: scale })}
           />
@@ -344,7 +364,7 @@ export const App: React.FC = () => {
         onSelectHymn={(h, project) => {
           setCurrentHymn(h);
           if (project) {
-            handleBroadcastHymnStanza(h, 0);
+            handleBroadcastHymnStanza(h, 0, hymnPrimaryLang, hymnSecondaryLang);
             setActiveTab('live');
           } else {
             setActiveTab('hymns');
