@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Search, 
   Music, 
@@ -7,10 +7,10 @@ import {
   Copy, 
   CheckCheck, 
   ArrowLeftRight,
-  FileText,
   Music2,
   Heart,
-  Share2
+  Share2,
+  MoreHorizontal
 } from 'lucide-react';
 import { 
   Hymn, 
@@ -65,7 +65,15 @@ export const HymnViewer: React.FC<HymnViewerProps> = ({
   const [selectedBook, setSelectedBook] = useState<BookId>('zion');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedHymn, setCopiedHymn] = useState(false);
-  const [viewType, setViewType] = useState<'lyrics' | 'sheet'>('lyrics');
+  const [isSheetMusicOpen, setIsSheetMusicOpen] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [showMobileLibrary, setShowMobileLibrary] = useState(false);
+
+  useEffect(() => {
+    if (isFavoritesFilterActive) {
+      setShowMobileLibrary(true);
+    }
+  }, [isFavoritesFilterActive]);
 
   // Filter hymns
   const filteredHymns = hymns.filter(h => {
@@ -133,9 +141,9 @@ export const HymnViewer: React.FC<HymnViewerProps> = ({
   const isPrimaryTamil = primaryLang === 'tamil';
 
   return (
-    <div className="flex flex-col lg:flex-row h-full gap-4">
+    <div className="flex flex-col lg:flex-row h-full min-h-0 gap-4">
       {/* Left List of Songs */}
-      <div className="w-full lg:w-80 lg:shrink-0 flex flex-col bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg max-h-[420px] lg:max-h-full">
+      <div className={`${showMobileLibrary ? 'flex' : 'hidden'} lg:flex w-full h-full min-h-0 lg:w-80 lg:shrink-0 flex-col bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg`}>
         {/* Book Selector Tabs (Hidden when Favorites filter is active) */}
         {!isFavoritesFilterActive ? (
           <div className="grid grid-cols-2 gap-1 p-2 bg-slate-950/80 border-b border-slate-800">
@@ -199,7 +207,10 @@ export const HymnViewer: React.FC<HymnViewerProps> = ({
               return (
                 <button
                   key={hymn.id}
-                  onClick={() => onSelectHymn(hymn)}
+                  onClick={() => {
+                    onSelectHymn(hymn);
+                    setShowMobileLibrary(false);
+                  }}
                   className={`w-full text-left p-2.5 rounded-xl transition flex items-center justify-between gap-2 ${
                     isSelected
                       ? 'bg-amber-500/15 border border-amber-500/40 text-amber-200'
@@ -244,7 +255,7 @@ export const HymnViewer: React.FC<HymnViewerProps> = ({
       </div>
 
       {/* Right Song Viewer & Sheet Music Deck */}
-      <div className="flex-1 flex flex-col bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg min-h-[480px]">
+      <div className={`${showMobileLibrary ? 'hidden' : 'flex'} lg:flex flex-1 h-full min-h-0 flex-col bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg`}>
         {currentHymn ? (
           <>
             {/* Top Song Header & Personal Controls */}
@@ -280,33 +291,14 @@ export const HymnViewer: React.FC<HymnViewerProps> = ({
                 </p>
               </div>
 
-              {/* View Switcher: Lyrics vs Sheet Music */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Lyrics vs Sheet Music Toggle */}
-                <div className="flex bg-slate-900 border border-slate-700/60 rounded-xl p-0.5 text-xs">
-                  <button
-                    onClick={() => setViewType('lyrics')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition ${
-                      viewType === 'lyrics'
-                        ? 'bg-amber-500 text-slate-950 shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>வரிகள் / Lyrics</span>
-                  </button>
-                  <button
-                    onClick={() => setViewType('sheet')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition ${
-                      viewType === 'sheet'
-                        ? 'bg-amber-500 text-slate-950 shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <Music2 className="w-3.5 h-3.5" />
-                    <span>நோட்ஸ் / Sheet Music</span>
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowMobileLibrary(true)}
+                  className="lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 text-xs font-semibold"
+                >
+                  <Music className="w-3.5 h-3.5" />
+                  Browse songs
+                </button>
 
                 {/* Bookmark Favorite Button */}
                 {onToggleFavorite && (
@@ -323,125 +315,108 @@ export const HymnViewer: React.FC<HymnViewerProps> = ({
                   </button>
                 )}
 
-                {/* Share to WhatsApp */}
-                <button
-                  onClick={() => handleShareWhatsApp(currentHymn)}
-                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition"
-                  title="Share Lyrics via WhatsApp"
-                >
-                  <Share2 className="w-4 h-4" />
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowActionsMenu(value => !value)}
+                    className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+                    title="More actions"
+                    aria-expanded={showActionsMenu}
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
 
-                {/* Copy lyrics */}
-                <button
-                  onClick={() => handleCopyLyrics(currentHymn)}
-                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-                  title="Copy lyrics"
-                >
-                  {copiedHymn ? <CheckCheck className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                </button>
-
-                {/* Report typo */}
-                <button
-                  onClick={() => onOpenReportModal(currentHymn)}
-                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition"
-                  title="Report a typo or chord fix"
-                >
-                  <AlertCircle className="w-4 h-4" />
-                </button>
+                  {showActionsMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-slate-700 bg-slate-950 shadow-2xl z-20 overflow-hidden">
+                      <button
+                        onClick={() => {
+                          handleCopyLyrics(currentHymn);
+                          setShowActionsMenu(false);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-900"
+                      >
+                        {copiedHymn ? <CheckCheck className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400" />}
+                        {copiedHymn ? 'Copied' : 'Copy lyrics'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleShareWhatsApp(currentHymn);
+                          setShowActionsMenu(false);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-900"
+                      >
+                        <Share2 className="w-4 h-4 text-emerald-400" />
+                        Share WhatsApp
+                      </button>
+                      <button
+                        onClick={() => {
+                          onOpenReportModal(currentHymn);
+                          setShowActionsMenu(false);
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-900"
+                      >
+                        <AlertCircle className="w-4 h-4 text-amber-400" />
+                        Report typo
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Language Controls (Only in Lyrics View) */}
-            {viewType === 'lyrics' && (
-              <div className="px-4 py-2.5 bg-slate-950/40 border-b border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-xs">
-                {/* Language selection */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/60 rounded-xl px-2.5 py-1">
-                    <span className="text-[10px] text-slate-400 uppercase font-mono font-semibold">Primary:</span>
-                    <div className="flex gap-1">
-                      {AVAILABLE_LYRIC_LANGUAGES.map(lang => (
-                        <button
-                          key={lang.id}
-                          onClick={() => {
-                            setPrimaryLang(lang.id);
-                            if (secondaryLang === lang.id) {
-                              const alt = AVAILABLE_LYRIC_LANGUAGES.find(x => x.id !== lang.id);
-                              setSecondaryLang(alt ? alt.id : 'none');
-                            }
-                          }}
-                          className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition ${
-                            primaryLang === lang.id
-                              ? 'bg-amber-500 text-slate-950 shadow-sm font-bold'
-                              : 'text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {lang.shortName}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+            <div className="px-4 py-3 bg-slate-950/40 border-b border-slate-800/60 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <label className="flex items-center gap-2 text-[10px] text-slate-400 uppercase font-mono font-semibold">
+                  Lyrics
+                  <select
+                    value={primaryLang}
+                    onChange={(e) => {
+                      const nextLang = e.target.value as LyricLanguage;
+                      setPrimaryLang(nextLang);
+                      if (secondaryLang === nextLang) {
+                        const alt = AVAILABLE_LYRIC_LANGUAGES.find(lang => lang.id !== nextLang);
+                        setSecondaryLang(alt ? alt.id : 'none');
+                      }
+                    }}
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold normal-case text-slate-100 outline-none focus:border-amber-500"
+                  >
+                    {AVAILABLE_LYRIC_LANGUAGES.map(lang => (
+                      <option key={lang.id} value={lang.id}>{lang.shortName}</option>
+                    ))}
+                  </select>
+                </label>
 
-                  {secondaryLang !== 'none' && (
-                    <button
-                      onClick={handleSwapLanguages}
-                      className="p-1 rounded-xl bg-slate-800 hover:bg-slate-750 text-amber-300 border border-slate-700 transition"
-                      title="Swap Primary & Parallel Lyrics"
-                    >
-                      <ArrowLeftRight className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                <button
+                  onClick={handleSwapLanguages}
+                  disabled={secondaryLang === 'none'}
+                  className="p-1.5 rounded-lg border border-slate-700 bg-slate-900 text-amber-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Swap primary and parallel lyrics"
+                  aria-label="Swap primary and parallel lyrics"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                </button>
 
-                  <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/60 rounded-xl px-2.5 py-1">
-                    <span className="text-[10px] text-slate-400 uppercase font-mono font-semibold">Parallel:</span>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => setSecondaryLang('none')}
-                        className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition ${
-                          secondaryLang === 'none'
-                            ? 'bg-slate-700 text-white font-bold'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        Off
-                      </button>
-                      {AVAILABLE_LYRIC_LANGUAGES.filter(l => l.id !== primaryLang).map(lang => (
-                        <button
-                          key={lang.id}
-                          onClick={() => setSecondaryLang(lang.id)}
-                          className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition ${
-                            secondaryLang === lang.id
-                              ? 'bg-emerald-500 text-slate-950 shadow-sm font-bold'
-                              : 'text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {lang.shortName}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-slate-400 font-mono hidden sm:inline">
-                  {appMode === 'personal' ? '📖 Personal Singing Mode' : '📡 Tap Stanza to Project'}
-                </div>
+                <label className="flex items-center gap-2 text-[10px] text-slate-400 uppercase font-mono font-semibold">
+                  Parallel
+                  <select
+                    value={secondaryLang}
+                    onChange={(e) => setSecondaryLang(e.target.value as LyricLanguage | 'none')}
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold normal-case text-slate-100 outline-none focus:border-amber-500"
+                  >
+                    <option value="none">Off</option>
+                    {AVAILABLE_LYRIC_LANGUAGES.filter(lang => lang.id !== primaryLang).map(lang => (
+                      <option key={lang.id} value={lang.id}>{lang.shortName}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
-            )}
 
-            {/* Main Body: Either Lyrics List or Sheet Music Viewer */}
-            {viewType === 'sheet' ? (
-              <div className="flex-1 p-3 overflow-hidden">
-                <SheetMusicViewer
-                  sheetMusicUrls={currentHymn.sheetMusicUrls}
-                  hymnTitle={primaryLang === 'tamil' ? currentHymn.titleTamil : currentHymn.titleTanglish}
-                  hymnNumber={currentHymn.number}
-                  bookName={currentHymn.bookNameEnglish}
-                  keySignature={currentHymn.keySignature}
-                />
+              <div className="text-[11px] text-slate-400">
+                {appMode === 'personal' ? 'Personal listening' : 'Select a stanza to project'}
               </div>
-            ) : (
-              /* Stanzas Grid / Cards */
-              <div className="flex-1 p-4 overflow-y-auto space-y-3.5">
+            </div>
+
+            {/* Lyrics first, followed by optional sheet music */}
+            <div className="flex-1 min-h-0 p-4 overflow-y-auto space-y-3.5">
                 {currentHymn.stanzas.map((stanza, idx) => {
                   const primaryLines = getLyricsForLang(stanza, primaryLang);
                   const secondaryLines = secondaryLang !== 'none' ? getLyricsForLang(stanza, secondaryLang) : [];
@@ -535,8 +510,31 @@ export const HymnViewer: React.FC<HymnViewerProps> = ({
                     </div>
                   );
                 })}
-              </div>
-            )}
+              {currentHymn.sheetMusicUrls && currentHymn.sheetMusicUrls.length > 0 && (
+                <details
+                  open={isSheetMusicOpen}
+                  onToggle={(event) => setIsSheetMusicOpen(event.currentTarget.open)}
+                  className="rounded-xl border border-slate-800 bg-slate-950/60 overflow-hidden"
+                >
+                  <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-amber-300 hover:bg-slate-900/80">
+                    <Music2 className="h-4 w-4" />
+                    <span>Sheet Music</span>
+                    <span className="ml-auto text-xs font-normal text-slate-400">
+                      {currentHymn.sheetMusicUrls.length} {currentHymn.sheetMusicUrls.length === 1 ? 'page' : 'pages'}
+                    </span>
+                  </summary>
+                  <div className="h-[min(70vh,720px)] min-h-[360px] p-2">
+                    <SheetMusicViewer
+                      sheetMusicUrls={currentHymn.sheetMusicUrls}
+                      hymnTitle={primaryLang === 'tamil' ? currentHymn.titleTamil : currentHymn.titleTanglish}
+                      hymnNumber={currentHymn.number}
+                      bookName={currentHymn.bookNameEnglish}
+                      keySignature={currentHymn.keySignature}
+                    />
+                  </div>
+                </details>
+              )}
+            </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center p-8 text-center text-slate-500">

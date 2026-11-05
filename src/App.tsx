@@ -3,7 +3,7 @@ import {
   Music, 
   BookOpen, 
   Radio, 
-  Calendar, 
+  Calendar,
   Hash,
   Heart
 } from 'lucide-react';
@@ -284,7 +284,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500/30">
+    <div className="h-dvh overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500/30">
       {/* Top Universal Header */}
       <Header
         roomId={roomId}
@@ -301,7 +301,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Tab Bar (Desktop / Tablet view) */}
-      <div className="border-b border-slate-800/80 bg-slate-900/40 px-3 sm:px-6">
+      <div className="hidden sm:block border-b border-slate-800/80 bg-slate-900/40 px-3 sm:px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <nav className="flex space-x-1 sm:space-x-3 py-2">
             {[
@@ -335,7 +335,11 @@ export const App: React.FC = () => {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl mx-auto w-full p-3 sm:p-6 pb-28 sm:pb-8">
+      <main className={`flex-1 min-h-0 max-w-7xl mx-auto w-full p-3 sm:p-6 ${
+        appMode === 'presenter' ? 'pb-52' : 'pb-16'
+      } sm:pb-8 ${
+        activeTab === 'hymns' ? 'overflow-hidden' : 'overflow-y-auto'
+      }`}>
         {activeTab === 'hymns' && (
           <HymnViewer
             hymns={SEED_HYMNS}
@@ -404,7 +408,7 @@ export const App: React.FC = () => {
       )}
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav aria-label="Mobile Navigation" className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/80 px-2 py-1.5 sm:hidden flex justify-around items-center">
+      <nav aria-label="Mobile Navigation" className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/80 px-1 py-1.5 sm:hidden flex justify-around items-center">
         <button
           onClick={() => {
             setActiveTab('hymns');
@@ -428,13 +432,16 @@ export const App: React.FC = () => {
           <span>Bible</span>
         </button>
 
-        {/* Center Quick Dial Button */}
         <button
           onClick={() => setIsDialpadOpen(true)}
-          className="flex flex-col items-center -mt-4 bg-gradient-to-tr from-amber-600 to-amber-400 text-slate-950 p-2.5 rounded-full shadow-lg shadow-amber-500/30 active:scale-95 transition"
-          title="Quick Dialpad"
+          aria-label="Search song by number"
+          className="flex flex-col items-center -mt-5 px-2 py-1 text-[10px] font-semibold text-amber-300 transition active:scale-95"
+          title="Find a song by number"
         >
-          <Hash className="w-5 h-5 font-bold" />
+          <span className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-slate-950 bg-gradient-to-tr from-amber-600 to-amber-400 text-slate-950 shadow-lg shadow-amber-500/25">
+            <Hash className="h-5 w-5 font-bold" />
+          </span>
+          <span className="mt-0.5">Number</span>
         </button>
 
         {appMode === 'personal' ? (
